@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 
 class Line {
@@ -7,6 +8,7 @@ private:
 public:
 
 	Line(const double x1 = 0.0f, const double y1 = 0.0f, const double x2 = 0.0f, const double y2= 0.0f) {
+		/*Sort the points by y axis position (makes the equations a bit simpler)*/
 		if (y1 < y2) {
 			Ymin = y1;
 			XminY = x1;
@@ -20,12 +22,15 @@ public:
 			XmaxY = x1;
 		}
 	}
+	/*Check if point's y axis is inside the line's*/
 	bool isInsideY(const double Yp = 0.0f) {
 		if (Yp >= Ymin || Yp <= Ymax) return true;
 		else return false;
 	}
-	bool isLeftofLine(const double Xp = 0.0f, const double Yp = 0.0f) {
-		Sx = XminY + ((XmaxY - XminY) * ((Yp - Ymin) / (Ymax - Ymin)));
+	/*Check if point is to the "right" (greater on the x axis) of the line diagonal*/
+	bool isRightofLine(const double Xp = 0.0f, const double Yp = 0.0f) {
+		/*Work out the x value of the line at the y value of the point*/
+		double Sx = XminY + ((XmaxY - XminY) * ((Yp - Ymin) / (Ymax - Ymin)));
 		if (Xp >= Sx) return true;
 		else return false;
 	}
@@ -40,9 +45,39 @@ public:
 	void addLine(const double x1, const double y1, const double x2, const double y2) {
 		Line* newLine = new Line(x1, y1, x2, y2);
 		lines.push_back(newLine);
+		if (y1 > Ymax) {
+			Ymax = y1;
+		}
+		if (y2 > Ymax) {
+			Ymax = y2;
+		}
+		if (y1 < Ymin) {
+			Ymin = y1;
+		}
+		if (y2 < Ymin) {
+			Ymin = y2;
+		}
 	}
 
-	Polygon() {
-
+	bool isInside(const double Xp = 0.0f, const double Yp = 0.0f) {
+		unsigned lineCount = 0;
+		for (unsigned i = 0; i < lines.size(); i++) {
+			if (lines[i]->isInsideY(Yp)) {
+				if (lines[i]->isRightofLine(Xp, Yp)) {
+					lineCount++;
+				}
+			}
+		}
+		if (lineCount % 2 == 0) return false;
+		else return true;
 	}
+
 };
+
+void main(int argc, char* argv[]) {
+	if (argc != 3) {
+		std::cout << "Call should be ./prog \"shapefile.txt\" xcoord ycoord" << std::endl;
+	}
+	std::ifstream file;
+	file.open(argv[1]);
+}
