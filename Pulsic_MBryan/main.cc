@@ -110,8 +110,15 @@ int main(int argc, char* argv[])
 			if (polyName == "OUTLINE")
 			{
 				outlineFlag = true;
+				Polygon outline;
+				std::vector<double, double> coords[2];
 				for (unsigned i; i < vertices; i++) {
-
+					std::string numbers;
+					double x, y;
+					std::getline(myFile, numbers);
+					std::stringstream nss;
+					nss >> x >> y;
+					
 				}
 			}
 		}
