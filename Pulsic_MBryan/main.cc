@@ -2,13 +2,15 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <stdlib.h>
+
 
 class Line {
 private:
-	double Ymax, Ymin, XmaxY, XminY; /*XmaxY is the X co-ordinate associated with Ymax, similar for XminY*/
+	double Ymax = 0.0, Ymin = 0.0, XmaxY = 0.0, XminY = 0.0; /*XmaxY is the X co-ordinate associated with Ymax, similar for XminY*/
 public:
 
-	Line(const double x1 = 0.0f, const double y1 = 0.0f, const double x2 = 0.0f, const double y2= 0.0f) 
+	Line(const double x1 = 0.0, const double y1 = 0.0, const double x2 = 0.0, const double y2= 0.0) 
 	{
 		/*Sort the points by y axis position (makes the equations a bit simpler)*/
 		if (y1 < y2) {
@@ -37,6 +39,11 @@ public:
 		double Sx = XminY + ((XmaxY - XminY) * ((Yp - Ymin) / (Ymax - Ymin)));
 		if (Xp >= Sx) return true;
 		else return false;
+	}
+
+	void printLine()
+	{
+		std::cout << "(" << XminY << ", " << Ymin << ") (" << XmaxY << ", " << Ymax << ") "; 
 	}
 };
 
@@ -75,9 +82,9 @@ public:
 		{
 			for (unsigned i = 0; i < lines.size(); i++)
 			{
-				if (lines[i]->isInsideY(Yp))
+				if (lines[i]->isInsideY(Yp) == true)
 				{
-					if (lines[i]->isRightofLine(Xp, Yp))
+					if (lines[i]->isRightofLine(Xp, Yp) == true)
 					{
 						lineCount++;
 					}
@@ -86,6 +93,16 @@ public:
 		}
 		if (lineCount % 2 == 0) return false;
 		else return true;
+	}
+
+	void printLines()
+	{
+		for (unsigned i = 0; i < lines.size(); i++)
+		{
+			std::cout << "Line " << i << " points: ";
+			lines[i]->printLine();
+			std::cout << std::endl;
+		}
 	}
 
 };
@@ -97,8 +114,8 @@ int main(int argc, char* argv[])
 		std::cerr << "Call should be ./prog \"shapefile.txt\" xcoord ycoord" << std::endl;
 	}
 	double xpoint, ypoint;
-	xpoint = (double)*argv[2];
-	ypoint = (double)*argv[3];
+	xpoint = atof(argv[2]);
+	ypoint = atof(argv[3]);
 	bool outlineFlag = false;
 	bool pointIsInside = false;
 	std::ifstream myFile;
@@ -120,31 +137,34 @@ int main(int argc, char* argv[])
 			{
 				outlineFlag = true;
 				std::vector<std::pair<double, double>> coords;
-				for (int i = 0; i < vertices; i++) {
+				for (unsigned i = 0; i < vertices; i++) {
 					std::string numbers;
 					double x, y;
 					std::getline(myFile, numbers);
 					std::stringstream nss(numbers);
 					nss >> x >> y;
+					/*std::cout << x << ", " << y << std::endl;*/
 					coords.push_back(std::pair<double, double>(x, y));					
 				}
-				for (int i = 0; i < coords.size(); i++)
+				for (long int i = 0; i < coords.size(); i++)
 				{
-					if (i + 1 == (coords.size()))
+					if (i+1l == (coords.size()))
 					{
 						outline.addLine(coords[i].first, coords[i].second, coords[0].first, coords[0].second);
 					}
 					else
 					{
-						outline.addLine(coords[i].first, coords[i].second, coords[i + 1].first, coords[i + 1].second);
+						outline.addLine(coords[i].first, coords[i].second, coords[i + 1l].first, coords[i + 1l].second);
 					}
 				}
+				std::cout << "Outline" << std::endl;
+				outline.printLines();
 			}
-			if (polyName == "CUTOUT")
+			if (polyName == "CUT")
 			{
 				Polygon cutout;
 				std::vector<std::pair<double, double>> coords;
-				for (int i = 0; i < vertices; i++) {
+				for (unsigned i = 0; i < vertices; i++) {
 					std::string numbers;
 					double x, y;
 					std::getline(myFile, numbers);
@@ -152,17 +172,19 @@ int main(int argc, char* argv[])
 					nss >> x >> y;
 					coords.push_back(std::pair<double, double>(x, y));
 				}
-				for (int i = 0; i < coords.size(); i++)
+				for (long int i = 0; i < coords.size(); i++)
 				{
-					if (i + 1 == (coords.size()))
+					if (i + 1l == (coords.size()))
 					{
 						cutout.addLine(coords[i].first, coords[i].second, coords[0].first, coords[0].second);
 					}
 					else
 					{
-						cutout.addLine(coords[i].first, coords[i].second, coords[i + 1].first, coords[i + 1].second);
+						cutout.addLine(coords[i].first, coords[i].second, coords[i + 1l].first, coords[i + 1l].second);
 					}
 				}
+				std::cout << "Cut" << std::endl;
+				cutout.printLines();
 				cutouts.push_back(&cutout);
 			}
 			
@@ -173,7 +195,7 @@ int main(int argc, char* argv[])
 	}
 	if (outlineFlag == true)
 	{
-		if (outline.isInside(xpoint, ypoint) == 1)
+		if (outline.isInside(xpoint, ypoint) == true)
 		{
 			pointIsInside = true;
 			for (int i = 0; i < cutouts.size(); i++)
@@ -191,7 +213,15 @@ int main(int argc, char* argv[])
 		std::cerr << "No Outline found in file" << std::endl;
 	}
 
-
-
-	return 0;
+	if (pointIsInside == true)
+	{
+		std::cout << "Point " << xpoint << ", " << ypoint << " is INSIDE the shape" << std::endl;
+		return 1;
+	}
+	else
+	{
+		std::cout << "Point " << xpoint << ", " << ypoint << " is OUTSIDE the shape" << std::endl;
+		return 0;
+	}
+	
 }
