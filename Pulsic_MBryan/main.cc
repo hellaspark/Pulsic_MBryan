@@ -6,7 +6,7 @@
 
 
 class Line {
-private:
+protected:
 	double Ymax = 0.0, Ymin = 0.0, XmaxY = 0.0, XminY = 0.0; /*XmaxY is the X co-ordinate associated with Ymax, similar for XminY*/
 public:
 
@@ -27,7 +27,7 @@ public:
 		}
 	}
 	/*Check if point's y axis is inside the line's*/
-	bool isInsideY(const double Yp = 0.0f) 
+	virtual bool isInsideY(const double Yp = 0.0f) 
 	{
 		if (Yp >= Ymin && Yp <= Ymax) {
 			std::cout << Yp << " is inside Y line " << Ymin << " < " << Ymax << std::endl;
@@ -51,13 +51,14 @@ public:
 };
 
 class Polygon {
-private:
-	std::vector< Line*> lines;
+
+protected:	
 	double Ymax = 0.0, Ymin = DBL_MAX;
 	std::string polygonName = "BLANK";
+	std::vector< Line*> lines;
 public:
 
-	void addLine(const double x1, const double y1, const double x2, const double y2) 
+	virtual void addLine(const double x1, const double y1, const double x2, const double y2) 
 	{
 		Line* newLine = new Line(x1, y1, x2, y2);
 		lines.push_back(newLine);
@@ -121,6 +122,47 @@ public:
 
 };
 
+class CutLine : public Line
+{
+public:
+	using Line::Line;
+
+	virtual bool isInsideY(const double Yp = 0.0f) override
+	{
+		if (Yp > Ymin && Yp <= Ymax) {
+			std::cout << Yp << " is inside Y line " << Ymin << " < " << Ymax << std::endl;
+			return true;
+		}
+		else return false;
+	}
+};
+
+class Cutout : public Polygon
+{
+public:
+	virtual void addLine(const double x1, const double y1, const double x2, const double y2) override
+	{
+		CutLine* newLine = new CutLine(x1, y1, x2, y2);
+		lines.push_back(newLine);
+		if (y1 > Ymax)
+		{
+			Ymax = y1;
+		}
+		if (y2 > Ymax)
+		{
+			Ymax = y2;
+		}
+		if (y1 < Ymin)
+		{
+			Ymin = y1;
+		}
+		if (y2 < Ymin)
+		{
+			Ymin = y2;
+		}
+	}
+};
+
 int main(int argc, char* argv[]) 
 {
 	if (argc < 3) 
@@ -135,7 +177,7 @@ int main(int argc, char* argv[])
 	std::ifstream myFile;
 	std::string fileLine;
 	Polygon outline;
-	std::vector<Polygon> cutouts;
+	std::vector<Cutout> cutouts;
 	myFile.open(argv[1]);
 	if (myFile.is_open()) {
 		while (std::getline(myFile, fileLine)) /*rewrite this bit*/
@@ -152,7 +194,7 @@ int main(int argc, char* argv[])
 				outline.setName(polyName);
 				outlineFlag = true;
 				std::vector<std::pair<double, double>> coords;
-				for (unsigned i = 0; i < vertices; i++) {
+				for (auto i = 0; i < vertices; i++) {
 					std::string numbers;
 					double x, y;
 					std::getline(myFile, numbers);
@@ -161,7 +203,7 @@ int main(int argc, char* argv[])
 					/*std::cout << x << ", " << y << std::endl;*/
 					coords.push_back(std::pair<double, double>(x, y));					
 				}
-				for (long int i = 0; i < coords.size(); i++)
+				for (auto i = 0; i < coords.size(); i++)
 				{
 					if (i+1l == (coords.size()))
 					{
@@ -176,10 +218,10 @@ int main(int argc, char* argv[])
 			}
 			if (polyName == "CUT")
 			{
-				Polygon cutout;
+				Cutout cutout;
 				cutout.setName(polyName);
 				std::vector<std::pair<double, double>> coords;
-				for (unsigned i = 0; i < vertices; i++) {
+				for (auto i = 0; i < vertices; i++) {
 					std::string numbers;
 					double x, y;
 					std::getline(myFile, numbers);
@@ -187,7 +229,7 @@ int main(int argc, char* argv[])
 					nss >> x >> y;
 					coords.push_back(std::pair<double, double>(x, y));
 				}
-				for (long int i = 0; i < coords.size(); i++)
+				for (auto i = 0; i < coords.size(); i++)
 				{
 					if (i + 1l == (coords.size()))
 					{
