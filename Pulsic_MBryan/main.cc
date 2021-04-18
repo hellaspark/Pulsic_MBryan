@@ -29,7 +29,10 @@ public:
 	/*Check if point's y axis is inside the line's*/
 	bool isInsideY(const double Yp = 0.0f) 
 	{
-		if (Yp >= Ymin || Yp <= Ymax) return true;
+		if (Yp >= Ymin && Yp <= Ymax) {
+			std::cout << Yp << " is inside Y line " << Ymin << " < " << Ymax << std::endl;
+			return true;
+		}
 		else return false;
 	}
 	/*Check if point is to the "right" (greater on the x axis) of the line diagonal*/
@@ -50,7 +53,8 @@ public:
 class Polygon {
 private:
 	std::vector< Line*> lines;
-	double Ymax = 0.0, Ymin = 0.0;
+	double Ymax = 0.0, Ymin = DBL_MAX;
+	std::string polygonName = "BLANK";
 public:
 
 	void addLine(const double x1, const double y1, const double x2, const double y2) 
@@ -77,13 +81,17 @@ public:
 
 	bool isInside(const double Xp = 0.0f, const double Yp = 0.0f) 
 	{
+		std::cout << "TEST_II " << Yp << " " << Ymax << " " << Ymin << std::endl;
 		unsigned lineCount = 0;
-		if (Yp < Ymax && Yp > Ymin)
+
+		if (Yp <= Ymax && Yp >= Ymin)
 		{
+			std::cout << Yp << " is greater than " << Ymin << " and less than " << Ymax << std::endl;
 			for (unsigned i = 0; i < lines.size(); i++)
 			{
 				if (lines[i]->isInsideY(Yp) == true)
 				{
+
 					if (lines[i]->isRightofLine(Xp, Yp) == true)
 					{
 						lineCount++;
@@ -95,8 +103,14 @@ public:
 		else return true;
 	}
 
+	void setName(std::string name)
+	{
+		polygonName = name;
+	}
+
 	void printLines()
 	{
+		std::cout << polygonName << " has Ymin " << Ymin << " and Ymax " << Ymax <<std::endl;
 		for (unsigned i = 0; i < lines.size(); i++)
 		{
 			std::cout << "Line " << i << " points: ";
@@ -121,7 +135,7 @@ int main(int argc, char* argv[])
 	std::ifstream myFile;
 	std::string fileLine;
 	Polygon outline;
-	std::vector<Polygon*> cutouts;
+	std::vector<Polygon> cutouts;
 	myFile.open(argv[1]);
 	if (myFile.is_open()) {
 		while (std::getline(myFile, fileLine)) /*rewrite this bit*/
@@ -135,6 +149,7 @@ int main(int argc, char* argv[])
 			}
 			if (polyName == "OUTLINE")
 			{
+				outline.setName(polyName);
 				outlineFlag = true;
 				std::vector<std::pair<double, double>> coords;
 				for (unsigned i = 0; i < vertices; i++) {
@@ -157,12 +172,12 @@ int main(int argc, char* argv[])
 						outline.addLine(coords[i].first, coords[i].second, coords[i + 1l].first, coords[i + 1l].second);
 					}
 				}
-				std::cout << "Outline" << std::endl;
-				outline.printLines();
+				/*outline.printLines();*/
 			}
 			if (polyName == "CUT")
 			{
 				Polygon cutout;
+				cutout.setName(polyName);
 				std::vector<std::pair<double, double>> coords;
 				for (unsigned i = 0; i < vertices; i++) {
 					std::string numbers;
@@ -183,9 +198,7 @@ int main(int argc, char* argv[])
 						cutout.addLine(coords[i].first, coords[i].second, coords[i + 1l].first, coords[i + 1l].second);
 					}
 				}
-				std::cout << "Cut" << std::endl;
-				cutout.printLines();
-				cutouts.push_back(&cutout);
+				cutouts.push_back(cutout);
 			}
 			
 		}
@@ -198,10 +211,14 @@ int main(int argc, char* argv[])
 		if (outline.isInside(xpoint, ypoint) == true)
 		{
 			pointIsInside = true;
+			std::cout << "TEST1" << std::endl;
 			for (int i = 0; i < cutouts.size(); i++)
 			{
-				if (cutouts[i]->isInside(xpoint, ypoint) == true)
+				std::cout << "TEST2 " << i << std::endl;
+				cutouts[i].printLines();
+				if (cutouts[i].isInside(xpoint, ypoint) == true)
 				{
+					std::cout << "TEST3" << std::endl;
 					pointIsInside = false;
 				}
 			}
