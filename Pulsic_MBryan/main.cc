@@ -43,7 +43,7 @@ public:
 class Polygon {
 private:
 	std::vector< Line*> lines;
-	double Ymax, Ymin;
+	double Ymax = 0.0, Ymin = 0.0;
 public:
 
 	void addLine(const double x1, const double y1, const double x2, const double y2) 
@@ -71,13 +71,16 @@ public:
 	bool isInside(const double Xp = 0.0f, const double Yp = 0.0f) 
 	{
 		unsigned lineCount = 0;
-		for (unsigned i = 0; i < lines.size(); i++) 
+		if (Yp < Ymax && Yp > Ymin)
 		{
-			if (lines[i]->isInsideY(Yp)) 
+			for (unsigned i = 0; i < lines.size(); i++)
 			{
-				if (lines[i]->isRightofLine(Xp, Yp)) 
+				if (lines[i]->isInsideY(Yp))
 				{
-					lineCount++;
+					if (lines[i]->isRightofLine(Xp, Yp))
+					{
+						lineCount++;
+					}
 				}
 			}
 		}
@@ -93,9 +96,15 @@ int main(int argc, char* argv[])
 	{
 		std::cerr << "Call should be ./prog \"shapefile.txt\" xcoord ycoord" << std::endl;
 	}
+	double xpoint, ypoint;
+	xpoint = (double)*argv[2];
+	ypoint = (double)*argv[3];
 	bool outlineFlag = false;
+	bool pointIsInside = false;
 	std::ifstream myFile;
 	std::string fileLine;
+	Polygon outline;
+	std::vector<Polygon*> cutouts;
 	myFile.open(argv[1]);
 	if (myFile.is_open()) {
 		while (std::getline(myFile, fileLine)) /*rewrite this bit*/
@@ -110,21 +119,76 @@ int main(int argc, char* argv[])
 			if (polyName == "OUTLINE")
 			{
 				outlineFlag = true;
-				Polygon outline;
-				std::vector<double, double> coords[2];
-				for (unsigned i; i < vertices; i++) {
+				std::vector<std::pair<double, double>> coords;
+				for (int i = 0; i < vertices; i++) {
 					std::string numbers;
 					double x, y;
 					std::getline(myFile, numbers);
-					std::stringstream nss;
+					std::stringstream nss(numbers);
 					nss >> x >> y;
-					
+					coords.push_back(std::pair<double, double>(x, y));					
+				}
+				for (int i = 0; i < coords.size(); i++)
+				{
+					if (i + 1 == (coords.size()))
+					{
+						outline.addLine(coords[i].first, coords[i].second, coords[0].first, coords[0].second);
+					}
+					else
+					{
+						outline.addLine(coords[i].first, coords[i].second, coords[i + 1].first, coords[i + 1].second);
+					}
 				}
 			}
+			if (polyName == "CUTOUT")
+			{
+				Polygon cutout;
+				std::vector<std::pair<double, double>> coords;
+				for (int i = 0; i < vertices; i++) {
+					std::string numbers;
+					double x, y;
+					std::getline(myFile, numbers);
+					std::stringstream nss(numbers);
+					nss >> x >> y;
+					coords.push_back(std::pair<double, double>(x, y));
+				}
+				for (int i = 0; i < coords.size(); i++)
+				{
+					if (i + 1 == (coords.size()))
+					{
+						cutout.addLine(coords[i].first, coords[i].second, coords[0].first, coords[0].second);
+					}
+					else
+					{
+						cutout.addLine(coords[i].first, coords[i].second, coords[i + 1].first, coords[i + 1].second);
+					}
+				}
+				cutouts.push_back(&cutout);
+			}
+			
 		}
 	}
 	else {
-		std::cout << "Shape file not found" << std::endl;
+		std::cerr << "Shape file not found" << std::endl;
+	}
+	if (outlineFlag == true)
+	{
+		if (outline.isInside(xpoint, ypoint) == 1)
+		{
+			pointIsInside = true;
+			for (int i = 0; i < cutouts.size(); i++)
+			{
+				if (cutouts[i]->isInside(xpoint, ypoint) == true)
+				{
+					pointIsInside = false;
+				}
+			}
+		}
+
+	}
+	else
+	{
+		std::cerr << "No Outline found in file" << std::endl;
 	}
 
 
