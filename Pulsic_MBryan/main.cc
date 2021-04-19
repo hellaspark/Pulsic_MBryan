@@ -4,6 +4,17 @@
 #include <vector>
 #include <stdlib.h>
 
+#define DEBUG
+
+#ifdef DEBUG
+#define debug_output(debugout) do { std::cerr << debugout << std::endl;} while (false)
+#else
+#define debug_output(debugout) do {} while (false)
+#endif //DEBUG
+
+/*Define explict states for line-point relationship. Limit value tracking matters
+to avoid issues if the raycast passes through a vertex directly*/
+enum class LineState {Left, On, Right, Rmax, Rmin};
 
 class Line {
 protected:
@@ -36,12 +47,18 @@ public:
 		else return false;
 	}
 	/*Check if point is to the "right" (greater on the x axis) of the line diagonal*/
-	virtual bool isRightofLine(const double Xp = 0.0f, const double Yp = 0.0f)
+	virtual LineState isRightofLine(const double Xp = 0.0f, const double Yp = 0.0f)
 	{
 		/*Work out the x value of the line at the y value of the point*/
 		double Sx = XminY + ((XmaxY - XminY) * ((Yp - Ymin) / (Ymax - Ymin)));
-		if (Xp >= Sx) return true;
-		else return false;
+		if (Xp > Sx)
+		{
+			if (Yp == Ymax) return LineState::Rmax;
+			else if (Yp == Ymin) return LineState::Rmin;
+			else return LineState::Right;
+		}
+		else if (Xp == Sx) return LineState::On;
+		else return LineState::Left;
 	}
 
 	void printLine()
@@ -60,8 +77,11 @@ public:
 
 	virtual void addLine(const double x1, const double y1, const double x2, const double y2)
 	{
+		/*Add a new line to the Polygon*/
 		Line* newLine = new Line(x1, y1, x2, y2);
 		lines.push_back(newLine);
+
+		/*Track the Y axis limits of the shape to easily exclude shape from checks*/
 		if (y1 > Ymax)
 		{
 			Ymax = y1;
@@ -82,35 +102,64 @@ public:
 
 	virtual bool isInside(const double Xp = 0.0f, const double Yp = 0.0f)
 	{
-		std::cout << "TEST_II " << Yp << " " << Ymax << " " << Ymin << std::endl;
-		unsigned lineCount = 0;
 
+		unsigned lineCount = 0;
+		bool onLine = false;
+		/*See if its worth checking this shape with a quick range check on Y axis*/
 		if (Yp <= Ymax && Yp >= Ymin)
 		{
-			std::cout << Yp << " is greater than " << Ymin << " and less than " << Ymax << std::endl;
+			debug_output( Yp << " is greater than " << Ymin << " and less than " << Ymax );
+			LineState prevRelation = LineState::Left;
 			for (unsigned i = 0; i < lines.size(); i++)
 			{
+				/*Determine if point is within the bounds of the Y co-ords of the line*/
 				if (lines[i]->isInsideY(Yp) == true)
 				{
-
-					if (lines[i]->isRightofLine(Xp, Yp) == true)
+					/*Determine if point is to the right of the line*/
+					const LineState currentRelation = lines[i]->isRightofLine(Xp, Yp);
+					if (currentRelation == LineState::On)
 					{
+						debug_output(Xp << " " << Yp << " is on a line");
+						onLine = true;
+					}
+					else if (currentRelation == LineState::Right)
+					{
+						debug_output(Xp << " " << Yp << " is right of a line");
 						lineCount++;
 					}
+					/*If our raycast passed through the limit of a line check with previous
+					relation, if both are the same we count both, as we're passing through
+					a local maxima or minima of an object, otherwise we only count the first
+					as we're passing through an inflection of the line*/
+					else if (currentRelation >= LineState::Rmax)
+					{
+						debug_output(Xp << " " << Yp << " is right of a line and at a limit: " << (int)currentRelation);
+						if (prevRelation < LineState::Rmax || prevRelation == currentRelation)
+						{
+							lineCount++;
+						}
+					}
+					/* Save to previous relation to check the connecting line's state*/
+					prevRelation = currentRelation;
 				}
+
 			}
 		}
-		if (lineCount % 2 == 0) return false;
-		else return true;
+		/*If we're on an edge, we're an outline so it's inside, otherwise we count the lines
+		we passed through and if it's odd, we're inside*/
+		if (onLine == true || lineCount % 2 != 0) return true;
+		else return false;
 	}
 
 	void setName(std::string name)
 	{
+		/*Set name of polygon, only really used for debugging at the moment*/
 		polygonName = name;
 	}
 
 	void printLines()
 	{
+		/*Print out the lines of the polygon for debugging*/
 		std::cout << polygonName << " has Ymin " << Ymin << " and Ymax " << Ymax << std::endl;
 		for (unsigned i = 0; i < lines.size(); i++)
 		{
@@ -122,96 +171,74 @@ public:
 
 };
 
-class CutLine : public Line
-{
-public:
-	using Line::Line;
-
-	virtual bool isInsideY(const double Yp = 0.0f) override
-	{
-		/*in the cutout, we want to exclude horizontal lines as they mark an edge where all points are
-		outside the cutout */
-		if (Yp > Ymin && Yp <= Ymax && Ymin != Ymax) {
-			std::cout << Yp << " is inside Y line " << Ymin << " < " << Ymax << std::endl;
-			return true;
-		}
-		else return false;
-	}
-
-	virtual bool isRightofLine(const double Xp = 0.0f, const double Yp = 0.0f)
-	{
-
-		/*Work out the x value of the line at the y value of the point*/
-		double Sx = XminY + ((XmaxY - XminY) * ((Yp - Ymin) / (Ymax - Ymin)));
-		/*detect vertex matching, if on vertex, we want to be outside the cutout*/
-		if ((Xp == XminY && Yp == Ymin) || (Xp == XmaxY && Yp == Ymax))
-		{
-			return false; /*TODO fix this logic*/
-		}
-		else if (Xp >= Sx) return true;
-		else return false;
-	}
-};
-
 class Cutout : public Polygon
 {
 public:
-	virtual void addLine(const double x1, const double y1, const double x2, const double y2) override
-	{
-		CutLine* newLine = new CutLine(x1, y1, x2, y2);
-		lines.push_back(newLine);
-		if (y1 > Ymax)
-		{
-			Ymax = y1;
-		}
-		if (y2 > Ymax)
-		{
-			Ymax = y2;
-		}
-		if (y1 < Ymin)
-		{
-			Ymin = y1;
-		}
-		if (y2 < Ymin)
-		{
-			Ymin = y2;
-		}
-	}
 
-	virtual bool isInside(const double Xp = 0.0f, const double Yp = 0.0f) override
+	virtual bool isInside(const double Xp = 0.0f, const double Yp = 0.0f)
 	{
-		std::cout << "TEST_II " << Yp << " " << Ymax << " " << Ymin << std::endl;
+
 		unsigned lineCount = 0;
-
-		if (Yp < Ymax && Yp > Ymin)
+		bool onLine = false;
+		/*See if its worth checking this shape with a quick range check on Y axis*/
+		if (Yp <= Ymax && Yp >= Ymin)
 		{
-			std::cout << Yp << " is greater than " << Ymin << " and less than " << Ymax << std::endl;
+			debug_output(Yp << " is greater than " << Ymin << " and less than " << Ymax);
+			LineState prevRelation = LineState::Left;
 			for (unsigned i = 0; i < lines.size(); i++)
 			{
+				/*Determine if point is within the bounds of the Y co-ords of the line*/
 				if (lines[i]->isInsideY(Yp) == true)
 				{
-
-					if (lines[i]->isRightofLine(Xp, Yp) == true)
+					/*Determine if point is to the right of the line*/
+					const LineState currentRelation = lines[i]->isRightofLine(Xp, Yp);
+					if (currentRelation == LineState::On)
 					{
+						debug_output(Xp << " " << Yp << " is on a line");
+						onLine = true;
+					}
+					else if (currentRelation == LineState::Right)
+					{
+						debug_output(Xp << " " << Yp << " is right of a line");
 						lineCount++;
 					}
+					/*If our raycast passed through the limit of a line check with previous
+					relation, if both are the same we count both, as we're passing through
+					a local maxima or minima of an object, otherwise we only count the first
+					as we're passing through an inflection of the line*/
+					else if (currentRelation >= LineState::Rmax)
+					{
+						debug_output(Xp << " " << Yp << " is right of a line and at a limit: " << (int)currentRelation);
+						if (prevRelation < LineState::Rmax || prevRelation == currentRelation)
+						{
+							lineCount++;
+						}
+					}
+					/* Save to previous relation to check the connecting line's state*/
+					prevRelation = currentRelation;
 				}
+
 			}
 		}
-		if (lineCount % 2 == 0) return false;
+		/*If we're on an edge, we're a cutout so we're outside the shape (so inside the outline), 
+		otherwise we count the lines we passed through and if it's odd, we're inside*/
+		if (onLine == true || lineCount % 2 == 0) return false;
 		else return true;
 	}
 };
 
 int main(int argc, char* argv[])
 {
+	/*Helper output*/
 	if (argc < 3)
 	{
-		std::cerr << "Call should be ./prog \"shapefile.txt\" xcoord ycoord" << std::endl;
+		std::cerr << "Call should be prog \"shapefile.txt\" xcoord ycoord" << std::endl;
 	}
 	double xpoint, ypoint;
+	/*Parse arguments for X and Y*/
 	xpoint = atof(argv[2]);
 	ypoint = atof(argv[3]);
+	/*Flag for checking our shape file has an outline*/
 	bool outlineFlag = false;
 	bool pointIsInside = false;
 	std::ifstream myFile;
@@ -254,7 +281,9 @@ int main(int argc, char* argv[])
 						outline.addLine(coords[i].first, coords[i].second, coords[i + 1].first, coords[i + 1].second);
 					}
 				}
-				/*outline.printLines();*/
+#ifdef DEBUG
+				outline.printLines();
+#endif // DEBUG
 			}
 			if (polyName == "CUT")
 			{
@@ -293,7 +322,7 @@ int main(int argc, char* argv[])
 		if (outline.isInside(xpoint, ypoint) == true)
 		{
 			pointIsInside = true;
-			std::cout << "TEST1" << std::endl;
+			debug_output("Point is inside outline");
 			for (int i = 0; i < cutouts.size(); i++)
 			{
 				std::cout << "TEST2 " << i << std::endl;
