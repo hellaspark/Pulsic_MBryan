@@ -15,6 +15,8 @@
 to avoid issues if the raycast passes through a vertex directly*/
 enum class LineState { Left, On, Right, Rmax, Rmin };
 
+/*Class of object for the lines of a polygon. Contains methods to check if a point is inside the limits of the line on the Y axis,
+and to check if a point is to the right of the line or at its limits*/
 class Line {
 protected:
 	double Ymax = 0.0, Ymin = 0.0, XmaxY = 0.0, XminY = 0.0; /*XmaxY is the X co-ordinate associated with Ymax, similar for XminY*/
@@ -40,7 +42,7 @@ public:
 	virtual bool isInsideY(const double Yp = 0.0f)
 	{
 		if (Yp >= Ymin && Yp <= Ymax) {
-			std::cout << Yp << " is inside Y line " << Ymin << " < " << Ymax << std::endl;
+			debug_output( Yp << " is inside Y line " << Ymin << " < " << Ymax );
 			return true;
 		}
 		else return false;
@@ -60,12 +62,14 @@ public:
 		else return LineState::Left;
 	}
 
+	/*Print line information, only used for debugging*/
 	void printLine()
 	{
 		std::cout << "(" << XminY << ", " << Ymin << ") (" << XmaxY << ", " << Ymax << ") ";
 	}
 };
 
+/*Class of object for polygonal shapes. Contains methods to add lines to the polygon, and to check if a point is inside it*/
 class Polygon {
 
 protected:
@@ -98,17 +102,18 @@ public:
 			Ymin = y2;
 		}
 	}
-
+	/*Check if given coordinate is inside of the polygon object*/
 	virtual bool isInside(const double Xp = 0.0f, const double Yp = 0.0f)
 	{
-
-		unsigned lineCount = 0;
+		int lineCount = 0;
+		/*Initialise variable to track if we've seen a line the point is directly on*/
 		bool onLine = false;
 		/*See if its worth checking this shape with a quick range check on Y axis*/
 		if (Yp <= Ymax && Yp >= Ymin)
 		{
 			debug_output(Yp << " is greater than " << Ymin << " and less than " << Ymax);
-			LineState prevRelation = LineState::Left;
+			/*Create storage of first state and previous state*/
+			LineState firstRelation = LineState::Left, prevRelation = LineState::Left;
 			for (unsigned i = 0; i < lines.size(); i++)
 			{
 				/*Determine if point is within the bounds of the Y co-ords of the line*/
@@ -138,10 +143,17 @@ public:
 							lineCount++;
 						}
 					}
+					/* Save the first relation to check with the last relation*/
+					if (i == 0) firstRelation = currentRelation;
 					/* Save to previous relation to check the connecting line's state*/
 					prevRelation = currentRelation;
 				}
-
+			}
+			/*If first relation is at a limit and last relation is at the opposite limit
+			we need to reduce the linecount to account for the inflection point*/
+			if (firstRelation >= LineState::Rmax && firstRelation != prevRelation)
+			{
+				lineCount--;
 			}
 		}
 		/*If we're on an edge, we're an outline so it's inside, otherwise we count the lines
@@ -170,20 +182,23 @@ public:
 
 };
 
+/*Inherited class of polygon, the cutout. Modifies the method for checking a point is inside the cutout to exclude its edges,
+as the requirement states that points on the edges of cutouts are inside the outline, not the cutout*/
 class Cutout : public Polygon
 {
 public:
-
+	/*Check if given coordinate is inside of the cutout object, edges count as outside*/
 	virtual bool isInside(const double Xp = 0.0f, const double Yp = 0.0f)
 	{
-
-		unsigned lineCount = 0;
+		int lineCount = 0;
+		/*Initialise variable to track if we've seen a line the point is directly on*/
 		bool onLine = false;
 		/*See if its worth checking this shape with a quick range check on Y axis*/
 		if (Yp <= Ymax && Yp >= Ymin)
 		{
 			debug_output(Yp << " is greater than " << Ymin << " and less than " << Ymax);
-			LineState prevRelation = LineState::Left;
+			/*Create storage of first state and previous state*/
+			LineState firstRelation = LineState::Left, prevRelation = LineState::Left;
 			for (unsigned i = 0; i < lines.size(); i++)
 			{
 				/*Determine if point is within the bounds of the Y co-ords of the line*/
@@ -213,10 +228,17 @@ public:
 							lineCount++;
 						}
 					}
+					/* Save the first relation to check with the last relation*/
+					if (i == 0) firstRelation = currentRelation;
 					/* Save to previous relation to check the connecting line's state*/
 					prevRelation = currentRelation;
 				}
-
+			}
+			/*If first relation is at a limit and last relation is at the opposite limit
+			we need to reduce the linecount to account for the inflection point*/
+			if (firstRelation >= LineState::Rmax && firstRelation != prevRelation)
+			{
+				lineCount--;
 			}
 		}
 		/*If we're on an edge, we're a cutout so we're outside the shape (so inside the outline),
