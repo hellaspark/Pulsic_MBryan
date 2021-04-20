@@ -133,12 +133,18 @@ public:
 					}
 					/*If our raycast passed through the limit of a line check with previous
 					relation, if both are the same we count both, as we're passing through
-					a local maxima or minima of an object, otherwise we only count the first
+					a local maxima or minima of an object, otherwise we only count the second
 					as we're passing through an inflection of the line*/
 					else if (currentRelation >= LineState::Rmax)
 					{
 						debug_output(Xp << " " << Yp << " is right of a line and at a limit: " << (int)currentRelation);
-						if (prevRelation < LineState::Rmax || prevRelation == currentRelation)
+						/*previous relation was the same limit, so we're a maxima or minima*/
+						if (prevRelation == currentRelation)
+						{
+							lineCount += 2;
+						}
+						/*previous relation was a limit but not the same limit, so we're inflected*/
+						else if (prevRelation < LineState::Rmax)
 						{
 							lineCount++;
 						}
@@ -150,10 +156,10 @@ public:
 				}
 			}
 			/*If first relation is at a limit and last relation is at the opposite limit
-			we need to reduce the linecount to account for the inflection point*/
+			we need to increment the linecount to account for the inflection point*/
 			if (firstRelation >= LineState::Rmax && firstRelation != prevRelation)
 			{
-				lineCount--;
+				lineCount++;
 			}
 		}
 		/*If we're on an edge, we're an outline so it's inside, otherwise we count the lines
@@ -223,7 +229,13 @@ public:
 					else if (currentRelation >= LineState::Rmax)
 					{
 						debug_output(Xp << " " << Yp << " is right of a line and at a limit: " << (int)currentRelation);
-						if (prevRelation < LineState::Rmax || prevRelation == currentRelation)
+						/*previous relation was the same limit, so we're a maxima or minima*/
+						if (prevRelation == currentRelation)
+						{
+							lineCount += 2;
+						}
+						/*previous relation was a limit but not the same limit, so we're inflected*/
+						else if (prevRelation < LineState::Rmax)
 						{
 							lineCount++;
 						}
@@ -235,10 +247,10 @@ public:
 				}
 			}
 			/*If first relation is at a limit and last relation is at the opposite limit
-			we need to reduce the linecount to account for the inflection point*/
+			we need to increment the linecount to account for the inflection point*/
 			if (firstRelation >= LineState::Rmax && firstRelation != prevRelation)
 			{
-				lineCount--;
+				lineCount++;
 			}
 		}
 		/*If we're on an edge, we're a cutout so we're outside the shape (so inside the outline),
